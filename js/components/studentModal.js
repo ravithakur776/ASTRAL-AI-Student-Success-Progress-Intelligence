@@ -1,6 +1,6 @@
 /**
  * ASTRAL - Comprehensive Student Intelligence Dossier Modal
- * Handles tabs, explainable diagnostics, what-if live simulation, intervention logging, profile editing, deletion, and PDF export
+ * Handles tabs, explainable diagnostics, 7-day personalized study plans, what-if simulation, intervention logging, profile editing, deletion, and PDF export
  */
 import { AIEngine } from '../services/aiEngine.js';
 import { StorageService } from '../services/storage.js';
@@ -109,7 +109,7 @@ export class StudentModal {
             <i class="fa-solid fa-brain"></i> Explainable Intelligence
           </button>
           <button type="button" class="modal-tab-btn ${this.activeTab === 'action-plan' ? 'active' : ''}" data-tab="action-plan">
-            <i class="fa-solid fa-list-check"></i> Action Plan & Mentorship
+            <i class="fa-solid fa-list-check"></i> 7-Day Study Plan
           </button>
           <button type="button" class="modal-tab-btn ${this.activeTab === 'simulator' ? 'active' : ''}" data-tab="simulator">
             <i class="fa-solid fa-flask"></i> What-If Simulator
@@ -427,57 +427,115 @@ export class StudentModal {
     }
 
     if (this.activeTab === 'action-plan') {
-      const plan = aiAnalysis.actionPlan;
+      const plan = aiAnalysis.actionPlan || AIEngine.generate7DayActionPlan(student);
+      const subjects = student.subjects || [];
+      const completedDays = (plan.days || []).filter(d => d.completed).length;
+      const totalDays = (plan.days || []).length || 7;
+      const progressPct = Math.round((completedDays / totalDays) * 100);
+
       return `
-        <div class="tab-pane animate-fade-in">
-          <!-- Action Plan Header -->
-          <div class="action-plan-hero card p-4 mb-6">
-            <div class="flex justify-between items-start">
+        <div class="tab-pane animate-fade-in space-y-6">
+          <!-- Plan Customization Header & Generator Controls -->
+          <div class="card p-5">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 pb-4 border-b border-slate-800">
               <div>
-                <span class="badge badge-risk-low mb-2"><i class="fa-solid fa-wand-magic-sparkles"></i> Synthesized Roadmap</span>
-                <h3 class="text-lg font-bold text-slate-100">${plan.title}</h3>
-                <p class="text-xs text-slate-300 mt-1">${plan.strategy}</p>
+                <span class="badge badge-risk-low mb-1.5"><i class="fa-solid fa-bolt text-primary"></i> Deterministic Action Engine</span>
+                <h3 class="text-base font-bold text-slate-100">${plan.title}</h3>
+                <p class="text-xs text-slate-300 mt-0.5">${plan.strategy}</p>
               </div>
-              <div class="text-right">
-                <span class="text-xs text-muted block">Expected Outcome</span>
-                <span class="text-sm font-bold text-success font-mono">${plan.targetGpaBoost}</span>
+              <div class="flex items-center gap-2">
+                <button type="button" id="btn-regenerate-plan" class="btn btn-primary btn-sm">
+                  <i class="fa-solid fa-arrows-rotate"></i> Regenerate Plan
+                </button>
+                <button type="button" id="btn-clear-plan" class="btn btn-outline btn-sm text-danger" title="Clear and Reset Plan">
+                  <i class="fa-solid fa-trash-can"></i> Clear Plan
+                </button>
+              </div>
+            </div>
+
+            <!-- Parameters Customizer Form -->
+            <div class="grid grid-cols-3 gap-4 pt-1">
+              <div>
+                <label class="form-label text-xs" for="plan-subject-select">Target Course Module</label>
+                <select id="plan-subject-select" class="form-input form-input-sm">
+                  ${subjects.map(sub => `
+                    <option value="${sub.code}" ${sub.code === plan.subjectCode ? 'selected' : ''}>
+                      ${sub.code} - ${sub.name} (Current: ${sub.score}%)
+                    </option>
+                  `).join('')}
+                  ${subjects.length === 0 ? '<option value="CORE101">Core Foundations (65%)</option>' : ''}
+                </select>
+              </div>
+
+              <div>
+                <label class="form-label text-xs" for="plan-target-score">Target Performance Score (%)</label>
+                <input type="number" id="plan-target-score" class="form-input form-input-sm" min="50" max="100" value="${plan.targetScore || 85}" />
+              </div>
+
+              <div>
+                <label class="form-label text-xs" for="plan-daily-hours">Daily Available Study Time</label>
+                <select id="plan-daily-hours" class="form-input form-input-sm">
+                  <option value="1" ${plan.dailyHours === 1 ? 'selected' : ''}>1.0 Hour / Day (60 mins)</option>
+                  <option value="1.5" ${plan.dailyHours === 1.5 ? 'selected' : ''}>1.5 Hours / Day (90 mins)</option>
+                  <option value="2" ${plan.dailyHours === 2 || !plan.dailyHours ? 'selected' : ''}>2.0 Hours / Day (120 mins)</option>
+                  <option value="3" ${plan.dailyHours === 3 ? 'selected' : ''}>3.0 Hours / Day (180 mins)</option>
+                  <option value="4" ${plan.dailyHours === 4 ? 'selected' : ''}>4.0 Hours / Day (Intensive 240 mins)</option>
+                </select>
               </div>
             </div>
           </div>
 
-          <!-- 4-Week Step-by-Step Milestones -->
-          <div class="grid grid-cols-2 gap-4 mb-6">
-            ${plan.weeks.map(w => `
-              <div class="week-card card p-4">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="week-pill">Week ${w.week}</span>
-                  <span class="text-xs font-semibold text-primary">${w.focus}</span>
+          <!-- Progress Completion Meter -->
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-2 text-xs">
+              <span class="font-semibold text-slate-200"><i class="fa-solid fa-list-check text-success"></i> 7-Day Plan Execution Progress</span>
+              <span class="font-mono font-bold text-primary">${completedDays} of ${totalDays} Days Completed (${progressPct}%)</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill bg-success" style="width: ${progressPct}%;"></div>
+            </div>
+          </div>
+
+          <!-- 7-Day Discrete Schedule Cards -->
+          <div class="space-y-3">
+            ${(plan.days || []).map((day, idx) => `
+              <div class="card p-4 transition-all hover:border-slate-700 ${day.completed ? 'bg-emerald-950/20 border-emerald-500/30' : 'bg-slate-900/50'}">
+                <div class="flex items-start justify-between gap-4 mb-2">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" class="task-checkbox plan-day-checkbox" id="check-day-${idx}" data-idx="${idx}" ${day.completed ? 'checked' : ''} />
+                    <div>
+                      <span class="text-2xs font-bold uppercase tracking-wider text-primary font-mono">${day.dayLabel}</span>
+                      <h4 class="text-sm font-bold text-slate-100 ${day.completed ? 'line-through text-slate-400' : ''}">${day.topic}</h4>
+                    </div>
+                  </div>
+                  <span class="badge ${day.completed ? 'badge-risk-low' : 'badge-risk-mod'} font-mono text-2xs">
+                    <i class="fa-solid fa-stopwatch"></i> ${day.duration}
+                  </span>
                 </div>
-                <ul class="week-tasks space-y-2 mt-3">
-                  ${w.tasks.map((task, idx) => `
-                    <li class="flex items-start gap-2 text-xs text-slate-300">
-                      <input type="checkbox" class="task-checkbox mt-0.5" id="task-${w.week}-${idx}" />
-                      <label for="task-${w.week}-${idx}" class="cursor-pointer">${task}</label>
-                    </li>
-                  `).join('')}
-                </ul>
+
+                <p class="text-xs text-slate-300 mt-2 ml-7">${day.task}</p>
+
+                <div class="ml-7 mt-2.5 p-2 rounded bg-slate-950/60 border border-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-bullseye text-cyan-400 text-xs"></i>
+                  <span class="text-2xs text-cyan-200"><strong>Objective:</strong> ${day.objective}</span>
+                </div>
               </div>
             `).join('')}
           </div>
 
-          <!-- Mentorship & Resource Recommendations -->
+          <!-- Mentorship & Recommended Learning Resources -->
           <div class="grid grid-cols-2 gap-4">
             <div class="card p-4">
-              <h4 class="font-semibold text-sm mb-2"><i class="fa-solid fa-users text-cyan-400"></i> Peer Mentorship Match</h4>
+              <h4 class="font-semibold text-sm mb-2"><i class="fa-solid fa-users text-cyan-400"></i> Peer Mentorship Connection</h4>
               <div class="p-3 bg-slate-900/60 rounded border border-slate-800">
                 <span class="badge badge-risk-low mb-1">${aiAnalysis.peerMentorRecommendation.badge}</span>
                 <p class="text-xs text-slate-300 mt-1">${aiAnalysis.peerMentorRecommendation.recommendation || `Matched with: <strong>${aiAnalysis.peerMentorRecommendation.recommendedPeer}</strong> for ${aiAnalysis.peerMentorRecommendation.focusArea}`}</p>
               </div>
             </div>
             <div class="card p-4">
-              <h4 class="font-semibold text-sm mb-2"><i class="fa-solid fa-book-open-reader text-indigo-400"></i> Targeted Learning Resources</h4>
+              <h4 class="font-semibold text-sm mb-2"><i class="fa-solid fa-book-open-reader text-indigo-400"></i> Targeted Study Resources</h4>
               <ul class="space-y-1.5 text-xs text-slate-300">
-                ${plan.recommendedResources.map(r => `
+                ${(plan.recommendedResources || []).map(r => `
                   <li class="flex items-center justify-between p-2 rounded bg-slate-900/40 border border-slate-800">
                     <span>${r.name}</span>
                     <span class="text-2xs uppercase text-muted font-semibold">${r.type}</span>
@@ -787,6 +845,62 @@ export class StudentModal {
     if (exportBtn) {
       exportBtn.addEventListener('click', () => {
         window.print();
+      });
+    }
+
+    // 7-DAY ACTION PLAN EVENT HANDLERS
+    if (this.activeTab === 'action-plan') {
+      const btnRegenerate = this.modalElement.querySelector('#btn-regenerate-plan');
+      const btnClear = this.modalElement.querySelector('#btn-clear-plan');
+      const subjectSelect = this.modalElement.querySelector('#plan-subject-select');
+      const targetScoreInput = this.modalElement.querySelector('#plan-target-score');
+      const dailyHoursSelect = this.modalElement.querySelector('#plan-daily-hours');
+
+      if (btnRegenerate) {
+        btnRegenerate.addEventListener('click', () => {
+          const subjectCode = subjectSelect ? subjectSelect.value : null;
+          const targetScore = targetScoreInput ? parseInt(targetScoreInput.value, 10) : 85;
+          const dailyHours = dailyHoursSelect ? parseFloat(dailyHoursSelect.value) : 2.0;
+
+          const newPlan = AIEngine.generate7DayActionPlan(this.currentStudent, {
+            subjectCode,
+            targetScore,
+            dailyHours
+          });
+
+          this.currentStudent.savedStudyPlan = newPlan;
+          StorageService.updateStudent(this.currentStudent);
+          UIUtils.showToast(`Synthesized new 7-Day Plan for ${newPlan.subjectName}!`, 'success');
+          this.render();
+        });
+      }
+
+      if (btnClear) {
+        btnClear.addEventListener('click', () => {
+          if (confirm('Clear currently saved study plan and reset to automatic default?')) {
+            delete this.currentStudent.savedStudyPlan;
+            StorageService.updateStudent(this.currentStudent);
+            UIUtils.showToast('Study plan cleared and reset.', 'info');
+            this.render();
+          }
+        });
+      }
+
+      // Day Checkboxes
+      this.modalElement.querySelectorAll('.plan-day-checkbox').forEach(box => {
+        box.addEventListener('change', (e) => {
+          const dayIdx = parseInt(e.target.dataset.idx, 10);
+          if (this.currentStudent.savedStudyPlan && this.currentStudent.savedStudyPlan.days[dayIdx]) {
+            this.currentStudent.savedStudyPlan.days[dayIdx].completed = e.target.checked;
+          } else {
+            // First time marking default plan
+            const plan = AIEngine.generate7DayActionPlan(this.currentStudent);
+            plan.days[dayIdx].completed = e.target.checked;
+            this.currentStudent.savedStudyPlan = plan;
+          }
+          StorageService.updateStudent(this.currentStudent);
+          this.render();
+        });
       });
     }
 

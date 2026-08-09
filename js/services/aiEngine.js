@@ -16,7 +16,7 @@ export class AIEngine {
     const name = String(student.name || 'Student').trim();
     const evaluation = this.evaluateRules(student);
     const explanation = this.generateHumanReadableExplanation(student, evaluation);
-    const actionPlan = this.generateActionPlan(student, evaluation);
+    const actionPlan = student.savedStudyPlan || this.generate7DayActionPlan(student);
     const peerMatch = this.suggestPeerMentor(student);
     const trajectory = this.calculateTrajectory(student);
 
@@ -25,7 +25,7 @@ export class AIEngine {
       studentName: name,
       // 1. Overall Status / Classification
       status: evaluation.status, // 'At Risk' | 'Needs Attention' | 'On Track'
-      riskLevel: evaluation.riskLevel, // 'High' | 'Moderate' | 'Low' (compatible with existing badge UI)
+      riskLevel: evaluation.riskLevel, // 'High' | 'Moderate' | 'Low'
       
       // 2. Risk Score & Health Score (0 - 100)
       riskScore: evaluation.riskScore,
@@ -34,7 +34,7 @@ export class AIEngine {
 
       // 3. Main Contributing Negative Factors
       contributingFactors: evaluation.contributingFactors,
-      primaryRootCauses: evaluation.contributingFactors.map(f => f.detail), // compatibility alias
+      primaryRootCauses: evaluation.contributingFactors.map(f => f.detail),
 
       // 4. Positive Factors / Strengths
       positiveFactors: evaluation.positiveFactors,
@@ -44,9 +44,9 @@ export class AIEngine {
 
       // 6. Clear Natural Language Human-Readable Explanation
       explanation: explanation,
-      diagnosticSummary: explanation, // compatibility alias
+      diagnosticSummary: explanation,
 
-      // Additional Actionable Guidance
+      // Additional Guidance & Plans
       retentionProbability: Math.max(10, Math.min(99, Math.round(evaluation.healthScore * 0.95))),
       predictedGpa: trajectory.predictedGpa,
       predictedGpaDelta: trajectory.delta,
@@ -278,9 +278,6 @@ export class AIEngine {
     const riskScore = Math.max(0, Math.min(100, 100 - healthScore));
 
     // Classification Thresholds
-    // 80 - 100 = On Track
-    // 60 - 79  = Needs Attention
-    // 0 - 59   = At Risk
     let status = 'On Track';
     let riskLevel = 'Low';
 
@@ -295,7 +292,6 @@ export class AIEngine {
       riskLevel = 'Low';
     }
 
-    // Ensure at least one positive factor for strong students, or default
     if (positiveFactors.length === 0 && healthScore >= 70) {
       positiveFactors.push({
         factor: 'Balanced Academic Standing',
@@ -304,7 +300,6 @@ export class AIEngine {
       });
     }
 
-    // Default recommendation if none added
     if (recommendedActions.length === 0) {
       if (status === 'On Track') {
         recommendedActions.push(`Continue current study habits and consider peer mentoring underclassmen.`);
@@ -395,149 +390,188 @@ export class AIEngine {
   }
 
   /**
-   * 4-Week Tailored Recovery/Growth Action Plan
+   * Generate a realistic, tailored 7-Day Action & Study Plan from student's actual parameters
    */
-  static generateActionPlan(student, evaluation) {
-    const subjects = Array.isArray(student.subjects) ? student.subjects : [];
-    const weakSubject = subjects.slice().sort((a, b) => (a.score || 0) - (b.score || 0))[0] || { name: 'Core Major Courses', code: 'CORE' };
-    const dept = student.department || 'Engineering';
+  static generate7DayActionPlan(student, customOptions = {}) {
+    const name = String((student && student.name) || 'Student').trim();
+    const subjects = Array.isArray(student && student.subjects) ? student.subjects : [];
 
-    if (evaluation.status === 'At Risk') {
+    // 1. Identify Target Subject
+    let targetSubject = null;
+    if (customOptions.subjectCode && subjects.length > 0) {
+      targetSubject = subjects.find(s => s.code === customOptions.subjectCode);
+    }
+    if (!targetSubject) {
+      // Pick lowest score subject by default, or fallback
+      const sorted = [...subjects].sort((a, b) => (a.score || 0) - (b.score || 0));
+      targetSubject = sorted[0] || { code: 'CORE101', name: 'Core Foundations', score: 65, difficulty: 'Medium' };
+    }
+
+    // 2. Identify Current & Target Performance
+    const currentScore = typeof targetSubject.score === 'number' ? targetSubject.score : 65;
+    const targetScore = typeof customOptions.targetScore === 'number' && !isNaN(customOptions.targetScore)
+      ? Math.max(50, Math.min(100, customOptions.targetScore))
+      : Math.min(100, Math.max(75, currentScore + 15));
+
+    // 3. Available Study Time per Day
+    const availableHours = typeof customOptions.dailyHours === 'number' && !isNaN(customOptions.dailyHours)
+      ? customOptions.dailyHours
+      : (student && typeof student.extracurricularHours === 'number' && student.extracurricularHours > 15 ? 1.5 : 2.0);
+
+    const minutesPerDay = Math.round(availableHours * 60);
+
+    // 4. Topic Curriculum Library tailored to subject domain
+    const curriculum = this.getSubjectCurriculum(targetSubject.name, targetSubject.code);
+
+    // 5. Generate 7 Discrete Days
+    const days = [
+      {
+        dayNumber: 1,
+        dayLabel: 'Day 1: Diagnostics & Foundations',
+        topic: curriculum.day1.topic,
+        duration: `${Math.round(minutesPerDay * 0.9)} mins`,
+        task: `${curriculum.day1.task} (Focus on closing the ${targetScore - currentScore}% score gap in ${targetSubject.code}).`,
+        objective: curriculum.day1.objective,
+        completed: false
+      },
+      {
+        dayNumber: 2,
+        dayLabel: 'Day 2: Core Concept Deep Dive',
+        topic: curriculum.day2.topic,
+        duration: `${minutesPerDay} mins`,
+        task: curriculum.day2.task,
+        objective: curriculum.day2.objective,
+        completed: false
+      },
+      {
+        dayNumber: 3,
+        dayLabel: 'Day 3: Problem Solving & Lab Application',
+        topic: curriculum.day3.topic,
+        duration: `${Math.round(minutesPerDay * 1.1)} mins`,
+        task: curriculum.day3.task,
+        objective: curriculum.day3.objective,
+        completed: false
+      },
+      {
+        dayNumber: 4,
+        dayLabel: 'Day 4: Assignment Backlog & Timeliness',
+        topic: curriculum.day4.topic,
+        duration: `${minutesPerDay} mins`,
+        task: `${curriculum.day4.task} Address assignment turnaround pace for ${targetSubject.name}.`,
+        objective: curriculum.day4.objective,
+        completed: false
+      },
+      {
+        dayNumber: 5,
+        dayLabel: 'Day 5: Advanced Problem Sets & Peer Study',
+        topic: curriculum.day5.topic,
+        duration: `${minutesPerDay} mins`,
+        task: curriculum.day5.task,
+        objective: curriculum.day5.objective,
+        completed: false
+      },
+      {
+        dayNumber: 6,
+        dayLabel: 'Day 6: Timed Mock Assessment',
+        topic: curriculum.day6.topic,
+        duration: `${Math.round(minutesPerDay * 1.2)} mins`,
+        task: `Complete a 45-minute timed test targeting $\\ge$ ${targetScore}% accuracy in ${targetSubject.code}.`,
+        objective: `Benchmark performance against target score (${targetScore}%).`,
+        completed: false
+      },
+      {
+        dayNumber: 7,
+        dayLabel: 'Day 7: Error Catalog & Faculty Review',
+        topic: curriculum.day7.topic,
+        duration: `${Math.round(minutesPerDay * 0.8)} mins`,
+        task: `Catalogue errors from Day 6 mock exam and formulate 3 targeted questions for faculty office hours.`,
+        objective: `Lock in retention and transition to weekly maintenance cadence.`,
+        completed: false
+      }
+    ];
+
+    return {
+      title: `7-Day Personalized Study & Recovery Plan: ${targetSubject.name}`,
+      subjectCode: targetSubject.code,
+      subjectName: targetSubject.name,
+      currentScore: currentScore,
+      targetScore: targetScore,
+      dailyHours: availableHours,
+      generatedAt: new Date().toISOString(),
+      strategy: `Targeted 7-day boost from ${currentScore}% to ${targetScore}% with ${availableHours}h/day focused revision.`,
+      days: days,
+      recommendedResources: [
+        { name: `${targetSubject.code} Video Lecture Archives`, type: "Online Portal" },
+        { name: "Campus Learning Center Walk-In Tutoring (Tues/Thurs)", type: "On-Campus" },
+        { name: "Curated Practice Problem Workbook", type: "Digital Reference" }
+      ]
+    };
+  }
+
+  /**
+   * Domain-Specific Curriculum Topics
+   */
+  static getSubjectCurriculum(subjectName, subjectCode) {
+    const s = `${subjectName} ${subjectCode}`.toLowerCase();
+
+    if (s.includes('algorithm') || s.includes('data structure') || s.includes('cs401')) {
       return {
-        title: "Intensive 4-Week Academic Recovery Roadmap",
-        strategy: "Immediate stabilization via attendance tracking, professor 1-on-1s, and peer tutoring.",
-        targetGpaBoost: "+0.65 Target Delta",
-        weeks: [
-          {
-            week: 1,
-            focus: "Immediate Stabilization & Triage",
-            tasks: [
-              `Schedule mandatory faculty office hour with ${weakSubject.name} instructor.`,
-              `Establish daily attendance check-in agreement with Academic Success Counselor.`,
-              `Clear outstanding assignment backlog for ${weakSubject.code}.`
-            ]
-          },
-          {
-            week: 2,
-            focus: "Concept Remediation & Problem Solving",
-            tasks: [
-              `Attend 2x/week peer study sessions for ${weakSubject.name}.`,
-              `Complete 3 foundational problem sets to close prerequisite gaps.`,
-              `Cap non-academic activities to maximum 6 hours this week.`
-            ]
-          },
-          {
-            week: 3,
-            focus: "Mid-Term Milestone & Mock Exam",
-            tasks: [
-              `Take proctored diagnostic test in ${weakSubject.code} targeting 70%+ score.`,
-              `Submit all upcoming assignments at least 12 hours prior to deadline.`,
-              `Review lab practical submissions with Teaching Assistant.`
-            ]
-          },
-          {
-            week: 4,
-            focus: "Progress Evaluation & Final Target Lock",
-            tasks: [
-              `Formal review with Department Advisor on trajectory improvement.`,
-              `Verify attendance has climbed above 75% statutory safety mark.`,
-              `Transition from remediation to regular maintenance study group.`
-            ]
-          }
-        ],
-        recommendedResources: [
-          { name: `${weakSubject.code} Video Lecture Archives`, type: "Online Portal" },
-          { name: "Campus Learning Center Walk-In Tutoring (Tues/Thurs)", type: "On-Campus" }
-        ]
-      };
-    } else if (evaluation.status === 'Needs Attention') {
-      return {
-        title: "Targeted Performance Optimization Plan",
-        strategy: "Reinforce weakest subject modules and stabilize weekly study cadence.",
-        targetGpaBoost: "+0.35 Target Delta",
-        weeks: [
-          {
-            week: 1,
-            focus: "Gap Identification",
-            tasks: [
-              `Review graded papers in ${weakSubject.name} to pinpoint recurring errors.`,
-              `Set up a dedicated 45-minute daily revision block.`
-            ]
-          },
-          {
-            week: 2,
-            focus: "Reinforcement & Lab Practice",
-            tasks: [
-              `Engage in active problem solving for ${weakSubject.code}.`,
-              `Maintain 90%+ attendance across all lectures.`
-            ]
-          },
-          {
-            week: 3,
-            focus: "Peer Collaboration",
-            tasks: [
-              `Form study triad for upcoming mid-semester assessments.`,
-              `Submit course project draft early for faculty feedback.`
-            ]
-          },
-          {
-            week: 4,
-            focus: "Assessment Readiness",
-            tasks: [
-              `Complete timed mock test for ${weakSubject.code}.`,
-              `Verify CGPA projection is on track.`
-            ]
-          }
-        ],
-        recommendedResources: [
-          { name: `${weakSubject.code} Concept Mindmaps`, type: "Study Aid" },
-          { name: "Weekly Faculty Q&A Office Hours", type: "Faculty" }
-        ]
-      };
-    } else {
-      return {
-        title: "Honors & Leadership Growth Roadmap",
-        strategy: "Accelerate advanced research, competitive hackathons, and peer mentoring leadership.",
-        targetGpaBoost: "Maintain Dean's List Standing",
-        weeks: [
-          {
-            week: 1,
-            focus: "Research & Advanced Topics",
-            tasks: [
-              `Initiate departmental research paper exploration or capstone prototype.`,
-              `Register for upcoming regional technical hackathon.`
-            ]
-          },
-          {
-            week: 2,
-            focus: "Peer Mentorship Leadership",
-            tasks: [
-              `Lead 1 peer tutoring session in ${dept} department.`,
-              `Publish technical notes/tutorials on course forum.`
-            ]
-          },
-          {
-            week: 3,
-            focus: "Industry Capstone Alignment",
-            tasks: [
-              `Connect with campus industry liaison for summer research fellowships.`,
-              `Benchmark algorithm runtime optimizations for semester project.`
-            ]
-          },
-          {
-            week: 4,
-            focus: "Portfolio Showcase",
-            tasks: [
-              `Finalize project showcase and submit paper draft for faculty review.`
-            ]
-          }
-        ],
-        recommendedResources: [
-          { name: "IEEE / ACM Digital Library Research Access", type: "Research Portal" },
-          { name: "Honors Undergraduate Research Grant Program", type: "Fellowship" }
-        ]
+        day1: { topic: 'Asymptotic Complexity & Recursion Tracing', task: 'Map recurrence trees and analyze Big-O upper/lower bounds for core divide-and-conquer algorithms.', objective: 'Identify why midterm lost points on recursion tree analysis.' },
+        day2: { topic: 'Dynamic Programming & Memoization Patterns', task: 'Solve 3 classic 1D & 2D memoization problems (Knapsack, Longest Common Subsequence).', objective: 'Master optimal substructure and overlapping subproblems.' },
+        day3: { topic: 'Graph Algorithms (BFS/DFS & Shortest Paths)', task: 'Trace Dijkstra and Bellman-Ford on weighted directed graphs with edge cases.', objective: 'Achieve 100% accuracy on adjacency list graph traversals.' },
+        day4: { topic: 'Balanced Trees, Heaps & Priority Queues', task: 'Implement Red-Black tree insertion cases and binary heap heapify operations.', objective: 'Eliminate runtime confusion between Min-Heaps and Max-Heaps.' },
+        day5: { topic: 'Sorting Lower Bounds & Greedy Strategies', task: 'Complete 5 practical algorithmic scenario questions with proof sketches.', objective: 'Understand when greedy choice property holds vs when DP is required.' },
+        day6: { topic: 'Timed Algorithmic Problem Solving Sprint', task: 'Simulate full exam conditions with 3 algorithmic coding/proof problems.', objective: 'Verify execution speed under timed pressure.' },
+        day7: { topic: 'Complexity Proofs & Office Hour Synthesis', task: 'Review edge-case failures with Teaching Assistant and annotate master cheat-sheet.', objective: 'Solidify mastery for end-term assessment.' }
       };
     }
+
+    if (s.includes('operating') || s.includes('system') || s.includes('cs403') || s.includes('cs402')) {
+      return {
+        day1: { topic: 'Process Lifecycle & CPU Scheduling', task: 'Calculate turnaround and waiting times for Round Robin, SJF, and Multi-level feedback queues.', objective: 'Master Gantt chart scheduling derivations.' },
+        day2: { topic: 'Thread Synchronization & Deadlock Handling', task: 'Solve Producer-Consumer and Dining Philosophers problems using Semaphores and Mutexes.', objective: 'Prevent race conditions and deadlock cycles.' },
+        day3: { topic: 'Virtual Memory & Page Replacement', task: 'Trace LRU, FIFO, and Optimal page replacement algorithms on a 12-reference string.', objective: 'Calculate exact page fault rates without arithmetic slips.' },
+        day4: { topic: 'File System Inodes & Disk Scheduling', task: 'Trace SCAN, C-LOOK disk scheduling algorithms and multi-level index file layout.', objective: 'Understand filesystem block allocation and inode pointers.' },
+        day5: { topic: 'Inter-Process Communication & Sockets', task: 'Review shared memory vs message passing tradeoffs in POSIX systems.', objective: 'Explain kernel vs user-space context switching.' },
+        day6: { topic: 'Proctored Systems Architecture Quiz', task: 'Take 45-minute timed theoretical quiz covering concurrency and virtual memory.', objective: 'Identify remaining gaps in OS primitives.' },
+        day7: { topic: 'Kernel Concepts Synthesis', task: 'Document complete summary mindmap of kernel memory and system calls.', objective: 'Finalize retention and test readiness.' }
+      };
+    }
+
+    if (s.includes('neural') || s.includes('deep learning') || s.includes('ai') || s.includes('ai401')) {
+      return {
+        day1: { topic: 'Backpropagation & Loss Optimization Calculus', task: 'Manually derive partial gradients for a 2-layer MLP with Cross-Entropy Loss.', objective: 'Eliminate confusion on chain rule matrix dimensions.' },
+        day2: { topic: 'CNN Architectures & Convolution Mechanics', task: 'Calculate receptive fields, padding, stride, and output dimensions across convolutional layers.', objective: 'Master spatial dimension transformations in vision models.' },
+        day3: { topic: 'Regularization & Gradient Vanishing Fixes', task: 'Implement Batch Normalization, Layer Normalization, and Dropout math walkthroughs.', objective: 'Prevent overfitting and gradient saturation.' },
+        day4: { topic: 'Recurrent Networks & Attention Primitives', task: 'Derive Query-Key-Value dot-product scaled attention and multi-head projection tensors.', objective: 'Understand transformer self-attention computations.' },
+        day5: { topic: 'PyTorch Model Training Diagnostics Lab', task: 'Debug learning rate decay curves, loss divergence, and gradient clipping.', objective: 'Interpret loss curves and hyperparameter stability.' },
+        day6: { topic: 'Deep Learning Architecture Milestone Test', task: 'Complete timed multi-choice and numerical problem set on neural design.', objective: 'Score $\\ge$ 85% on modern deep learning architectures.' },
+        day7: { topic: 'Model Optimization & Peer Discussion', task: 'Discuss transformer attention scaling with peer mentor Ananya Deshmukh.', objective: 'Synthesize intuitive and mathematical grasp of attention.' }
+      };
+    }
+
+    if (s.includes('math') || s.includes('discrete') || s.includes('probability') || s.includes('ma401')) {
+      return {
+        day1: { topic: 'Mathematical Proofs & Induction', task: 'Write formal induction proofs for summation formulas and divisibility theorems.', objective: 'Master base case and inductive step structure.' },
+        day2: { topic: 'Combinatorics & Pigeonhole Principle', task: 'Solve 8 complex permutations, combinations, and inclusion-exclusion problems.', objective: 'Avoid overcounting errors in discrete probability.' },
+        day3: { topic: 'Graph Theory, Trees & Isomorphism', task: 'Verify Euler paths, Hamiltonian cycles, and planar graph vertex coloring theorems.', objective: 'Accurately apply Handshaking lemma and Euler\'s formula.' },
+        day4: { topic: 'Recurrence Relations & Generating Functions', task: 'Solve 4 second-order linear homogeneous recurrence relations with characteristic roots.', objective: 'Solve closed-form formulas for recursive sequences.' },
+        day5: { topic: 'Modular Arithmetic & Cryptography Basics', task: 'Apply Extended Euclidean Algorithm and Fermat\'s Little Theorem on RSA calculations.', objective: 'Compute modular inverses quickly and accurately.' },
+        day6: { topic: 'Timed Quantitative Mathematics Assessment', task: 'Complete 60-minute diagnostic exam on all semester discrete topics.', objective: 'Demonstrate rigorous step-by-step mathematical reasoning.' },
+        day7: { topic: 'Error Analysis & Formula Synthesis', task: 'Create personal high-yield theorem summary sheet and review tricky proofs.', objective: 'Ensure total exam readiness.' }
+      };
+    }
+
+    // Default Fallback Course Template
+    return {
+      day1: { topic: 'Diagnostic Review & Syllabus Gap Mapping', task: `Review past quizzes and assignment feedback in ${subjectName} to locate lost points.`, objective: 'Pinpoint the top 3 weak areas in course concepts.' },
+      day2: { topic: 'Core Concept Module 1 Deep Dive', task: `Read core textbook chapter and create bulleted concept summaries for unit 1.`, objective: 'Rebuild fundamental theoretical understanding.' },
+      day3: { topic: 'Targeted Problem Solving & Active Recall', task: `Solve 10 representative practice questions covering key course formulas/models.`, objective: 'Verify application of core concepts to sample problems.' },
+      day4: { topic: 'Assignment Backlog & Lab Work', task: `Review and complete any pending coursework or lab demonstrations.`, objective: 'Ensure 100% assignment completion credit.' },
+      day5: { topic: 'Core Concept Module 2 & Synthesis', task: `Consolidate secondary units and practice cross-topic integration questions.`, objective: 'Connect theoretical models to practical exam questions.' },
+      day6: { topic: 'Timed Course Assessment Simulation', task: `Complete a 45-minute timed mock test under exam conditions.`, objective: 'Assess retention and time management.' },
+      day7: { topic: 'Error Log Consolidation & Faculty Prep', task: `Log all missed questions and draft specific questions for professor office hours.`, objective: 'Establish long-term study habit for the course.' }
+    };
   }
 
   /**
@@ -641,7 +675,7 @@ export class AIEngine {
       predictedGpaDelta: 0,
       confidenceScore: 60,
       trajectoryTrend: 'stable',
-      actionPlan: this.generateActionPlan({ name, department: 'General' }, { status: 'Needs Attention' }),
+      actionPlan: this.generate7DayActionPlan({ name, department: 'General', subjects: [] }),
       peerMentorRecommendation: { role: 'Mentee', badge: '🤝 Recommended Peer Match', recommendation: 'Consult department advisor.' }
     };
   }

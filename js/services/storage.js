@@ -56,7 +56,7 @@ export class StorageService {
     const cgpa = typeof student.cgpa === 'number' && !isNaN(student.cgpa) ? Math.max(0, Math.min(10, +(student.cgpa).toFixed(2))) : 7.0;
     const att = typeof student.attendanceRate === 'number' && !isNaN(student.attendanceRate) ? Math.max(0, Math.min(100, Math.round(student.attendanceRate))) : 75;
 
-    return {
+    const sanitized = {
       id: student.id ? String(student.id).trim() : `AST-${1001 + index}`,
       name: String(student.name || 'Unnamed Student').trim(),
       email: String(student.email || 'student@campus.edu').trim(),
@@ -94,6 +94,12 @@ export class StorageService {
       })) : [],
       tags: Array.isArray(student.tags) ? student.tags.map(String) : []
     };
+
+    if (student.savedStudyPlan && typeof student.savedStudyPlan === 'object') {
+      sanitized.savedStudyPlan = student.savedStudyPlan;
+    }
+
+    return sanitized;
   }
 
   /**
