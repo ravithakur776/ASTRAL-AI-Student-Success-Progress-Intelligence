@@ -1,6 +1,7 @@
 /**
  * ASTRAL - Comprehensive Student Intelligence Dossier Modal
- * Handles tabs, explainable diagnostics, 7-day personalized study plans, what-if simulation, intervention logging, profile editing, deletion, and PDF export
+ * Structured 4-Pillar Experience: WHO / HOW / WHY / WHAT
+ * Handles overview, explainable diagnostics, 7-day study plans, what-if simulations, intervention logging, profile editing, and deletion.
  */
 import { AIEngine } from '../services/aiEngine.js';
 import { StorageService } from '../services/storage.js';
@@ -33,7 +34,7 @@ export class StudentModal {
   }
 
   /**
-   * Close modal safely
+   * Close modal safely and return to dashboard view
    */
   close() {
     if (this.analyticsManager) {
@@ -73,9 +74,12 @@ export class StudentModal {
 
     modal.innerHTML = `
       <div class="modal-card modal-lg animate-scale-up" role="dialog" aria-modal="true" aria-labelledby="modal-student-name">
-        <!-- Modal Header -->
+        <!-- Modal Header with Navigation -->
         <div class="modal-header">
           <div class="student-header-profile">
+            <button type="button" id="btn-back-dashboard" class="btn btn-secondary btn-xs mr-2" title="Return to Dashboard">
+              <i class="fa-solid fa-arrow-left"></i> Dashboard
+            </button>
             <img src="${student.avatar}" alt="${student.name}" class="student-modal-avatar" />
             <div>
               <div class="flex items-center gap-3">
@@ -91,7 +95,7 @@ export class StudentModal {
           </div>
           <div class="modal-header-actions flex items-center gap-2">
             <button type="button" id="btn-export-dossier" class="btn btn-secondary btn-sm" title="Print or Export PDF Report">
-              <i class="fa-solid fa-print"></i> Export Dossier
+              <i class="fa-solid fa-print"></i> Export
             </button>
             <button type="button" id="btn-delete-student" class="btn btn-outline btn-sm text-danger" title="Delete Student Record">
               <i class="fa-solid fa-trash"></i> Delete
@@ -146,72 +150,124 @@ export class StudentModal {
   }
 
   /**
-   * Generate HTML for active tab
+   * Generate HTML for active tab (Structured WHO / HOW / WHY / WHAT)
    */
   getTabContentHTML(aiAnalysis) {
     const student = this.currentStudent;
     if (!student) return '';
 
     if (this.activeTab === 'overview') {
+      const gpaProgress = Math.min(100, Math.round((student.cgpa / (student.targetCgpa || 10)) * 100));
+
       return `
-        <div class="tab-pane animate-fade-in">
-          <!-- Top Metric Pills -->
-          <div class="grid grid-cols-4 gap-4 mb-6">
-            <div class="kpi-mini-card">
-              <span class="kpi-mini-label">Current CGPA</span>
-              <div class="kpi-mini-value flex items-center justify-between">
-                <span>${student.cgpa.toFixed(2)}</span>
-                ${UIUtils.getGpaBadge(student.cgpa)}
+        <div class="tab-pane animate-fade-in space-y-6">
+          <!-- 1. WHO THE STUDENT IS: Identity & Goals Bar -->
+          <div class="card p-4 bg-slate-900/60 border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <span class="text-2xs font-bold uppercase tracking-wider text-muted font-mono"><i class="fa-solid fa-id-card text-primary"></i> Academic Identity & Target</span>
+              <div class="flex items-center gap-3 mt-1">
+                <h3 class="text-base font-bold text-slate-100">${student.name} &bull; ${student.department}</h3>
+                <span class="badge ${student.financialHold ? 'badge-risk-high' : 'badge-risk-low'}">
+                  ${student.financialHold ? '⚠️ Administrative Hold' : '✓ Good Financial Standing'}
+                </span>
               </div>
-              <span class="text-xs text-muted">Target: ${student.targetCgpa.toFixed(2)}</span>
+              <p class="text-xs text-muted mt-1">
+                Semester ${student.semester} &bull; Extracurricular: <strong>${student.extracurricularHours}h/week</strong> &bull; 
+                Advisor: <strong>${student.interventions && student.interventions.length > 0 ? student.interventions[0].advisor : 'Faculty Advisor'}</strong>
+              </p>
             </div>
-            <div class="kpi-mini-card">
-              <span class="kpi-mini-label">Attendance Rate</span>
-              <div class="kpi-mini-value flex items-center justify-between">
-                <span>${student.attendanceRate}%</span>
-                ${UIUtils.getAttendanceBadge(student.attendanceRate)}
+
+            <div class="p-3 bg-slate-950/70 rounded border border-slate-800 min-w-[220px]">
+              <div class="flex justify-between items-center text-xs mb-1">
+                <span class="text-muted font-semibold">Target Goal:</span>
+                <span class="font-mono font-bold text-primary">${student.targetCgpa.toFixed(2)} CGPA</span>
               </div>
-              <span class="text-xs ${student.attendanceRate < 75 ? 'text-danger' : 'text-success'}">
-                ${student.attendanceRate < 75 ? '⚠️ Below 75% threshold' : '✓ Good Standing'}
-              </span>
-            </div>
-            <div class="kpi-mini-card">
-              <span class="kpi-mini-label">Assignment Velocity</span>
-              <div class="kpi-mini-value">${student.assignmentCompletionRate}%</div>
-              <span class="text-xs text-muted">Avg Turnaround: ${student.submissionLatencyAvgDays > 0 ? `+${student.submissionLatencyAvgDays}d` : 'On Time'}</span>
-            </div>
-            <div class="kpi-mini-card">
-              <span class="kpi-mini-label">Academic Health Score</span>
-              <div class="kpi-mini-value text-accent">${aiAnalysis.healthScore || 70} / 100</div>
-              <span class="text-xs text-muted">Status: ${aiAnalysis.status || 'On Track'}</span>
+              <div class="progress-bar-bg mb-1.5">
+                <div class="progress-bar-fill ${student.cgpa >= student.targetCgpa ? 'bg-success' : 'bg-primary'}" style="width: ${gpaProgress}%;"></div>
+              </div>
+              <span class="text-2xs text-muted block text-right">Current: ${student.cgpa.toFixed(2)} (${gpaProgress}% of target)</span>
             </div>
           </div>
 
-          <!-- Charts Row -->
-          <div class="grid grid-cols-2 gap-6 mb-6">
-            <div class="chart-container-card">
-              <div class="flex justify-between items-center mb-3">
-                <h4 class="font-semibold text-sm"><i class="fa-solid fa-chart-line text-primary"></i> 8-Week Attendance Trajectory</h4>
-                <span class="text-xs text-muted">Statutory safety line: 75%</span>
+          <!-- 2. WHY THEY HAVE THEIR CURRENT STATUS: Explainable AI Insight Callout -->
+          <div class="card p-4 border-l-4 ${aiAnalysis.status === 'At Risk' ? 'border-l-rose-500 bg-rose-950/10' : aiAnalysis.status === 'Needs Attention' ? 'border-l-amber-500 bg-amber-950/10' : 'border-l-emerald-500 bg-emerald-950/10'}">
+            <div class="flex justify-between items-center mb-1.5">
+              <span class="text-2xs font-bold uppercase tracking-wider text-muted font-mono">
+                <i class="fa-solid fa-microchip text-primary"></i> Primary ASTRAL Diagnostic Reason
+              </span>
+              <span class="badge ${aiAnalysis.status === 'At Risk' ? 'badge-risk-high' : aiAnalysis.status === 'Needs Attention' ? 'badge-risk-mod' : 'badge-risk-low'}">
+                ${aiAnalysis.status} (${aiAnalysis.riskScore}% Risk)
+              </span>
+            </div>
+            <p class="text-sm font-semibold text-slate-100 leading-relaxed">
+              "${aiAnalysis.explanation}"
+            </p>
+          </div>
+
+          <!-- 3. HOW THEY ARE PERFORMING: Core 4-Metric Grid -->
+          <div>
+            <span class="text-2xs font-bold uppercase tracking-wider text-muted font-mono block mb-2">Academic Metrics Matrix</span>
+            <div class="grid grid-cols-4 gap-3">
+              <div class="kpi-mini-card">
+                <span class="kpi-mini-label">Current CGPA</span>
+                <div class="kpi-mini-value flex items-center justify-between">
+                  <span>${student.cgpa.toFixed(2)}</span>
+                  ${UIUtils.getGpaBadge(student.cgpa)}
+                </div>
+                <span class="text-xs text-muted">Goal: ${student.targetCgpa.toFixed(2)}</span>
               </div>
-              <div style="height: 170px;">
+
+              <div class="kpi-mini-card">
+                <span class="kpi-mini-label">Attendance Rate</span>
+                <div class="kpi-mini-value flex items-center justify-between">
+                  <span>${student.attendanceRate}%</span>
+                  ${UIUtils.getAttendanceBadge(student.attendanceRate)}
+                </div>
+                <span class="text-xs ${student.attendanceRate < 75 ? 'text-danger' : 'text-success'}">
+                  ${student.attendanceRate < 75 ? '⚠️ Below 75% threshold' : '✓ Good Standing'}
+                </span>
+              </div>
+
+              <div class="kpi-mini-card">
+                <span class="kpi-mini-label">Assignment Velocity</span>
+                <div class="kpi-mini-value">${student.assignmentCompletionRate}%</div>
+                <span class="text-xs text-muted">Avg Late: ${student.submissionLatencyAvgDays > 0 ? `+${student.submissionLatencyAvgDays}d` : 'On Time'}</span>
+              </div>
+
+              <div class="kpi-mini-card">
+                <span class="kpi-mini-label">Academic Health Score</span>
+                <div class="kpi-mini-value text-accent">${aiAnalysis.healthScore || 70} / 100</div>
+                <span class="text-xs text-muted">Forecast: <strong>${aiAnalysis.predictedGpa.toFixed(2)} CGPA</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Visual Trajectory & Subject Mastery Charts -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="chart-container-card">
+              <div class="flex justify-between items-center mb-2">
+                <h4 class="font-semibold text-xs"><i class="fa-solid fa-chart-line text-primary"></i> 8-Week Attendance Trajectory</h4>
+                <span class="text-2xs text-muted">Statutory Line: 75%</span>
+              </div>
+              <div style="height: 160px;">
                 <canvas id="modal-attendance-spark"></canvas>
               </div>
             </div>
+
             <div class="chart-container-card">
-              <div class="flex justify-between items-center mb-3">
-                <h4 class="font-semibold text-sm"><i class="fa-solid fa-compass-drafting text-cyan-400"></i> Subject Mastery Radar</h4>
-                <span class="text-xs text-muted">Scale 0 - 100</span>
+              <div class="flex justify-between items-center mb-2">
+                <h4 class="font-semibold text-xs"><i class="fa-solid fa-compass-drafting text-cyan-400"></i> Subject Mastery Radar</h4>
+                <span class="text-2xs text-muted">Course Scale 0 - 100</span>
               </div>
-              <div style="height: 170px;">
+              <div style="height: 160px;">
                 <canvas id="modal-subject-radar"></canvas>
               </div>
             </div>
           </div>
 
-          <!-- Enrolled Subjects Table -->
+          <!-- 5. Enrolled Courses Matrix -->
           <div class="card p-4">
-            <h4 class="font-semibold text-sm mb-3"><i class="fa-solid fa-book-bookmark text-indigo-400"></i> Enrolled Course Performance Matrix</h4>
+            <h4 class="font-semibold text-xs uppercase text-muted font-mono mb-3"><i class="fa-solid fa-book-bookmark text-indigo-400"></i> Enrolled Course Performance Matrix</h4>
             <div class="table-responsive">
               <table class="data-table">
                 <thead>
@@ -236,7 +292,7 @@ export class StudentModal {
                         <td>
                           <div class="flex items-center gap-2">
                             <span class="font-semibold ${isFailing ? 'text-danger' : 'text-slate-200'}">${sub.score || 0}%</span>
-                            <div class="progress-bar-bg" style="width: 70px;">
+                            <div class="progress-bar-bg" style="width: 60px;">
                               <div class="progress-bar-fill ${isFailing ? 'bg-danger' : 'bg-primary'}" style="width: ${sub.score || 0}%;"></div>
                             </div>
                           </div>
@@ -249,6 +305,48 @@ export class StudentModal {
                   }).join('')}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- 6. WHAT THEY SHOULD DO NEXT: Action Hub & Peer Mentorship -->
+          <div>
+            <span class="text-2xs font-bold uppercase tracking-wider text-muted font-mono block mb-2">Recommended Next Actions & Immediate Navigation</span>
+            <div class="grid grid-cols-3 gap-3">
+              <div class="card p-4 bg-primary/10 border-primary/30 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center gap-2 text-primary font-bold text-xs mb-1">
+                    <i class="fa-solid fa-list-check"></i> 7-Day Action Plan
+                  </div>
+                  <p class="text-2xs text-slate-300">Structured daily study schedule addressing ${(student.subjects && student.subjects.length > 0) ? student.subjects[0].name : 'weakest modules'}.</p>
+                </div>
+                <button type="button" class="btn btn-primary btn-xs mt-3 btn-nav-tab" data-target="action-plan">
+                  Open 7-Day Plan <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+
+              <div class="card p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center gap-2 text-warning font-bold text-xs mb-1">
+                    <i class="fa-solid fa-user-pen"></i> Log Faculty Intervention
+                  </div>
+                  <p class="text-2xs text-slate-300">Document formal advisory warnings, tutoring enrollment, or counseling sessions.</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-xs mt-3 btn-nav-tab" data-target="interventions">
+                  Log Intervention <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+
+              <div class="card p-4 bg-cyan-950/20 border-cyan-500/30 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center gap-2 text-cyan-400 font-bold text-xs mb-1">
+                    <i class="fa-solid fa-flask"></i> What-If Simulator
+                  </div>
+                  <p class="text-2xs text-slate-300">Test hypothetical grade & attendance improvements on student's live risk index.</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-xs mt-3 btn-nav-tab" data-target="simulator">
+                  Launch Simulator <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -809,11 +907,22 @@ export class StudentModal {
       this.isBackdropBound = true;
     }
 
-    // Close button
+    // Close & Back buttons
     const closeBtn = this.modalElement.querySelector('#btn-close-modal');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => this.close());
-    }
+    const backBtn = this.modalElement.querySelector('#btn-back-dashboard');
+    if (closeBtn) closeBtn.addEventListener('click', () => this.close());
+    if (backBtn) backBtn.addEventListener('click', () => this.close());
+
+    // 1-Click Navigation Buttons inside Overview tab
+    this.modalElement.querySelectorAll('.btn-nav-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.target;
+        if (target) {
+          this.activeTab = target;
+          this.render();
+        }
+      });
+    });
 
     // Delete Student button
     const deleteBtn = this.modalElement.querySelector('#btn-delete-student');
