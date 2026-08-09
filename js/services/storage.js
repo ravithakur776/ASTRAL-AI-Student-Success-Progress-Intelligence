@@ -46,15 +46,36 @@ export class StorageService {
   }
 
   /**
-   * Validate and sanitize a student record structure
+   * Validate and sanitize a student record structure with full null/fuzzing safety
    */
   static sanitizeStudent(student, index = 0) {
     if (!student || typeof student !== 'object') {
       return null;
     }
 
-    const cgpa = typeof student.cgpa === 'number' && !isNaN(student.cgpa) ? Math.max(0, Math.min(10, +(student.cgpa).toFixed(2))) : 7.0;
-    const att = typeof student.attendanceRate === 'number' && !isNaN(student.attendanceRate) ? Math.max(0, Math.min(100, Math.round(student.attendanceRate))) : 75;
+    const cgpa = typeof student.cgpa === 'number' && !isNaN(student.cgpa) 
+      ? Math.max(0, Math.min(10, +(student.cgpa).toFixed(2))) 
+      : 7.0;
+
+    const att = typeof student.attendanceRate === 'number' && !isNaN(student.attendanceRate) 
+      ? Math.max(0, Math.min(100, Math.round(student.attendanceRate))) 
+      : 75;
+
+    const asg = typeof student.assignmentCompletionRate === 'number' && !isNaN(student.assignmentCompletionRate)
+      ? Math.max(0, Math.min(100, Math.round(student.assignmentCompletionRate)))
+      : 80;
+
+    const latency = typeof student.submissionLatencyAvgDays === 'number' && !isNaN(student.submissionLatencyAvgDays)
+      ? +(student.submissionLatencyAvgDays).toFixed(1)
+      : 0;
+
+    const extra = typeof student.extracurricularHours === 'number' && !isNaN(student.extracurricularHours)
+      ? Math.max(0, Math.min(60, Math.round(student.extracurricularHours)))
+      : 8;
+
+    const targetCgpa = typeof student.targetCgpa === 'number' && !isNaN(student.targetCgpa)
+      ? Math.max(0, Math.min(10, +(student.targetCgpa).toFixed(2)))
+      : 8.5;
 
     const sanitized = {
       id: student.id ? String(student.id).trim() : `AST-${1001 + index}`,
@@ -64,27 +85,31 @@ export class StorageService {
       department: String(student.department || 'Computer Science').trim(),
       semester: typeof student.semester === 'number' && !isNaN(student.semester) ? Math.max(1, Math.min(8, Math.round(student.semester))) : 4,
       cgpa,
-      targetCgpa: typeof student.targetCgpa === 'number' && !isNaN(student.targetCgpa) ? Math.max(0, Math.min(10, +(student.targetCgpa).toFixed(2))) : 8.5,
+      targetCgpa,
       attendanceRate: att,
-      assignmentCompletionRate: typeof student.assignmentCompletionRate === 'number' && !isNaN(student.assignmentCompletionRate) ? Math.max(0, Math.min(100, Math.round(student.assignmentCompletionRate))) : 80,
-      submissionLatencyAvgDays: typeof student.submissionLatencyAvgDays === 'number' && !isNaN(student.submissionLatencyAvgDays) ? +(student.submissionLatencyAvgDays).toFixed(1) : 0,
+      assignmentCompletionRate: asg,
+      submissionLatencyAvgDays: latency,
       financialHold: Boolean(student.financialHold),
-      extracurricularHours: typeof student.extracurricularHours === 'number' && !isNaN(student.extracurricularHours) ? Math.max(0, Math.round(student.extracurricularHours)) : 8,
-      subjects: Array.isArray(student.subjects) ? student.subjects.map(s => ({
-        code: String(s.code || 'SUB101').trim(),
-        name: String(s.name || 'Course Subject').trim(),
-        score: typeof s.score === 'number' && !isNaN(s.score) ? Math.max(0, Math.min(100, Math.round(s.score))) : Math.round(cgpa * 10),
-        maxScore: 100,
-        attendance: typeof s.attendance === 'number' && !isNaN(s.attendance) ? Math.max(0, Math.min(100, Math.round(s.attendance))) : att,
-        difficulty: ['High', 'Medium', 'Low'].includes(s.difficulty) ? s.difficulty : 'Medium'
-      })) : [],
+      extracurricularHours: extra,
+      subjects: Array.isArray(student.subjects) ? student.subjects.filter(s => s && typeof s === 'object').map(s => {
+        const rawScore = typeof s.score === 'number' && !isNaN(s.score) ? s.score : (parseFloat(s.score) || Math.round(cgpa * 10));
+        const rawAtt = typeof s.attendance === 'number' && !isNaN(s.attendance) ? s.attendance : (parseFloat(s.attendance) || att);
+        return {
+          code: String(s.code || 'SUB101').trim(),
+          name: String(s.name || 'Course Subject').trim(),
+          score: Math.max(0, Math.min(100, Math.round(rawScore))),
+          maxScore: 100,
+          attendance: Math.max(0, Math.min(100, Math.round(rawAtt))),
+          difficulty: ['High', 'Medium', 'Low'].includes(s.difficulty) ? s.difficulty : 'Medium'
+        };
+      }) : [],
       weeklyAttendanceHistory: Array.isArray(student.weeklyAttendanceHistory) && student.weeklyAttendanceHistory.length > 0
         ? student.weeklyAttendanceHistory.map(v => typeof v === 'number' && !isNaN(v) ? Math.max(0, Math.min(100, Math.round(v))) : att)
         : [att, att, att, att, att, att, att, att],
       monthlyTestScores: Array.isArray(student.monthlyTestScores) && student.monthlyTestScores.length > 0
         ? student.monthlyTestScores.map(v => typeof v === 'number' && !isNaN(v) ? Math.max(0, Math.min(100, Math.round(v))) : Math.round(cgpa * 10))
         : [Math.round(cgpa * 10), Math.round(cgpa * 10)],
-      interventions: Array.isArray(student.interventions) ? student.interventions.map(i => ({
+      interventions: Array.isArray(student.interventions) ? student.interventions.filter(i => i && typeof i === 'object').map(i => ({
         id: String(i.id || `INT-${Date.now().toString().slice(-4)}`),
         date: String(i.date || new Date().toISOString().split('T')[0]),
         advisor: String(i.advisor || 'Academic Advisor').trim(),
@@ -141,7 +166,7 @@ export class StorageService {
   static getStudentById(id) {
     if (!id) return null;
     const students = this.getStudents();
-    return students.find(s => String(s.id).toLowerCase() === String(id).toLowerCase()) || null;
+    return students.find(s => s && s.id && String(s.id).toLowerCase() === String(id).toLowerCase()) || null;
   }
 
   /**
@@ -176,7 +201,7 @@ export class StorageService {
   static updateStudent(updatedStudent) {
     if (!updatedStudent || !updatedStudent.id) return null;
     const students = this.getStudents();
-    const index = students.findIndex(s => String(s.id).toLowerCase() === String(updatedStudent.id).toLowerCase());
+    const index = students.findIndex(s => s && s.id && String(s.id).toLowerCase() === String(updatedStudent.id).toLowerCase());
     if (index !== -1) {
       const sanitized = this.sanitizeStudent({ ...students[index], ...updatedStudent }, index);
       students[index] = sanitized;
@@ -190,12 +215,12 @@ export class StorageService {
    * Add a new student with collision-proof unique ID
    */
   static addStudent(newStudent) {
-    if (!newStudent) return null;
+    if (!newStudent || typeof newStudent !== 'object') return null;
     const students = this.getStudents();
 
     // Ensure unique ID
     let finalId = newStudent.id ? String(newStudent.id).trim() : '';
-    const idExists = finalId && students.some(s => s.id.toLowerCase() === finalId.toLowerCase());
+    const idExists = finalId && students.some(s => s && s.id && s.id.toLowerCase() === finalId.toLowerCase());
     if (!finalId || idExists) {
       finalId = this.generateNextId(students);
     }
@@ -221,7 +246,7 @@ export class StorageService {
   static deleteStudent(id) {
     if (!id) return [];
     let students = this.getStudents();
-    students = students.filter(s => String(s.id).toLowerCase() !== String(id).toLowerCase());
+    students = students.filter(s => s && s.id && String(s.id).toLowerCase() !== String(id).toLowerCase());
     this.saveStudents(students);
     return students;
   }
@@ -232,7 +257,7 @@ export class StorageService {
   static addIntervention(studentId, intervention) {
     if (!studentId || !intervention) return null;
     const students = this.getStudents();
-    const student = students.find(s => String(s.id).toLowerCase() === String(studentId).toLowerCase());
+    const student = students.find(s => s && s.id && String(s.id).toLowerCase() === String(studentId).toLowerCase());
     if (student) {
       if (!Array.isArray(student.interventions)) student.interventions = [];
       const newIntervention = {
@@ -256,9 +281,9 @@ export class StorageService {
   static updateInterventionStatus(studentId, interventionId, newStatus) {
     if (!studentId || !interventionId || !newStatus) return null;
     const students = this.getStudents();
-    const student = students.find(s => String(s.id).toLowerCase() === String(studentId).toLowerCase());
+    const student = students.find(s => s && s.id && String(s.id).toLowerCase() === String(studentId).toLowerCase());
     if (student && Array.isArray(student.interventions)) {
-      const intv = student.interventions.find(i => String(i.id).toLowerCase() === String(interventionId).toLowerCase());
+      const intv = student.interventions.find(i => i && i.id && String(i.id).toLowerCase() === String(interventionId).toLowerCase());
       if (intv) {
         intv.status = newStatus;
         this.saveStudents(students);
