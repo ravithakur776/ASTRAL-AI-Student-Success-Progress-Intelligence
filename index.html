@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASTRAL — AI Student Success & Progress Intelligence Platform</title>
+  <meta name="description" content="AI-driven early warning and progress intelligence platform for student retention, academic trajectory forecasting, and automated remediation roadmaps." />
+
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Custom Design System Stylesheet -->
+  <link rel="stylesheet" href="./css/style.css" />
+
+  <!-- Chart.js CDN for Interactive Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header class="top-nav">
+    <div class="brand-logo-group">
+      <div class="brand-icon">
+        <i class="fa-solid fa-sparkles"></i>
+      </div>
+      <div>
+        <h1 class="brand-name">ASTRAL</h1>
+        <span class="brand-tagline">AI Student Success & Progress Intelligence</span>
+      </div>
+    </div>
+
+    <!-- Center Role Switcher -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 bg-slate-900/80 p-1 rounded-md border border-slate-800">
+        <i class="fa-solid fa-user-shield text-muted pl-2 text-xs"></i>
+        <select id="select-user-role" class="form-input form-input-xs border-0 bg-transparent text-slate-200 cursor-pointer">
+          <option value="faculty">Role: Faculty Success Advisor</option>
+          <option value="dean">Role: Dean / Academic Director</option>
+          <option value="student">Role: Student Self-Service Portal</option>
+        </select>
+      </div>
+      <span id="current-role-badge" class="role-badge role-faculty">Faculty Advisor Workspace</span>
+    </div>
+
+    <!-- Header Actions -->
+    <div class="flex items-center gap-2">
+      <button id="btn-refresh-charts" class="btn btn-secondary btn-sm" title="Synchronize Analytics & Forecasts">
+        <i class="fa-solid fa-arrows-rotate"></i> Sync
+      </button>
+      <button id="btn-reset-data" class="btn btn-outline btn-sm" title="Reset Demo Data">
+        <i class="fa-solid fa-rotate-left"></i> Reset Demo
+      </button>
+      <button id="btn-top-enroll" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-user-plus"></i> Enroll Student
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Viewport Content -->
+  <main class="main-content">
+    <!-- 1. Executive Metric Summary Cards (5-Column KPI Row) -->
+    <section class="grid grid-cols-5 gap-4 mb-6">
+      <div class="kpi-card kpi-card-indigo">
+        <div class="kpi-label">
+          <span>Enrolled Cohort</span>
+          <i class="fa-solid fa-users text-primary"></i>
+        </div>
+        <div class="kpi-value" id="kpi-total-students">16</div>
+        <div class="kpi-subtext">Across 6 Technical Majors</div>
+      </div>
+
+      <div class="kpi-card kpi-card-cyan">
+        <div class="kpi-label">
+          <span>Batch Mean CGPA</span>
+          <i class="fa-solid fa-graduation-cap text-cyan-400"></i>
+        </div>
+        <div class="kpi-value" id="kpi-avg-gpa">7.48</div>
+        <div class="kpi-subtext text-success"><i class="fa-solid fa-arrow-trend-up"></i> +0.12 Target Delta</div>
+      </div>
+
+      <div class="kpi-card kpi-card-rose">
+        <div class="kpi-label">
+          <span>At-Risk Early Warnings</span>
+          <i class="fa-solid fa-triangle-exclamation text-danger"></i>
+        </div>
+        <div class="kpi-value text-danger" id="kpi-at-risk-count">4</div>
+        <div class="kpi-subtext text-danger">Requires Priority Triage</div>
+      </div>
+
+      <div class="kpi-card kpi-card-emerald">
+        <div class="kpi-label">
+          <span>Predicted Retention</span>
+          <i class="fa-solid fa-shield-heart text-success"></i>
+        </div>
+        <div class="kpi-value text-success" id="kpi-retention-rate">88%</div>
+        <div class="kpi-subtext text-muted">ASTRAL Confidence: 94%</div>
+      </div>
+
+      <div class="kpi-card kpi-card-amber">
+        <div class="kpi-label">
+          <span>Active Interventions</span>
+          <i class="fa-solid fa-clipboard-check text-warning"></i>
+        </div>
+        <div class="kpi-value text-warning" id="kpi-interventions">5</div>
+        <div class="kpi-subtext text-muted">In Progress / Pending</div>
+      </div>
+    </section>
+
+    <!-- 2. Interactive Visual Analytics Matrix (2x2 Grid) -->
+    <section class="grid grid-cols-2 gap-6 mb-8">
+      <!-- Chart 1: Grade & Performance Distribution -->
+      <div class="chart-container-card">
+        <div class="flex justify-between items-center mb-2">
+          <div>
+            <h3 class="text-sm font-bold text-slate-100"><i class="fa-solid fa-chart-simple text-primary"></i> Cohort Grade & GPA Distribution</h3>
+            <span class="text-2xs text-muted">Binned academic performance index across all active semesters</span>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart-performance-dist"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Attendance vs GPA Correlation -->
+      <div class="chart-container-card">
+        <div class="flex justify-between items-center mb-2">
+          <div>
+            <h3 class="text-sm font-bold text-slate-100"><i class="fa-solid fa-chart-line text-cyan-400"></i> Attendance Rate vs. CGPA Trajectory</h3>
+            <span class="text-2xs text-muted">Scatter correlation highlighting attendance drop hazard zones</span>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart-attendance-gpa"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 3: Cohort Risk Tier Breakdown -->
+      <div class="chart-container-card">
+        <div class="flex justify-between items-center mb-2">
+          <div>
+            <h3 class="text-sm font-bold text-slate-100"><i class="fa-solid fa-chart-pie text-rose-400"></i> ASTRAL Early Warning (EWS) Risk Tiers</h3>
+            <span class="text-2xs text-muted">Algorithmic risk segmentation: High (🔴), Moderate (🟡), Low (🟢)</span>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart-risk-dist"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 4: Department Readiness & Health Radar -->
+      <div class="chart-container-card">
+        <div class="flex justify-between items-center mb-2">
+          <div>
+            <h3 class="text-sm font-bold text-slate-100"><i class="fa-solid fa-compass-drafting text-emerald-400"></i> Department Comparative Health Radar</h3>
+            <span class="text-2xs text-muted">Multi-axial metrics across Attendance, CGPA and Cohort Safety</span>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart-dept-radar"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Student Intelligence Roster & Search Command Hub -->
+    <section class="toolbar-container">
+      <div class="flex items-center justify-between gap-4">
+        <!-- Natural Language & Text Search Input -->
+        <div class="search-input-wrapper">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input
+            type="text"
+            id="input-search-students"
+            class="form-input form-input-search"
+            placeholder="Search by student name, ID, or natural language (e.g. 'high risk', 'attendance < 75', 'failing math')..."
+            aria-label="Search students"
+          />
+          <span class="search-shortcut-hint">⌘K or /</span>
+        </div>
+
+        <!-- Department Filter -->
+        <div class="flex items-center gap-2">
+          <select id="select-dept-filter" class="form-input" style="width: 200px;">
+            <option value="all">All Departments</option>
+            <option value="Computer Science">Computer Science</option>
+            <option value="Artificial Intelligence">Artificial Intelligence</option>
+            <option value="Data Science">Data Science</option>
+            <option value="Electrical Engineering">Electrical Engineering</option>
+            <option value="Mechanical Engineering">Mechanical Engineering</option>
+            <option value="Business Analytics">Business Analytics</option>
+          </select>
+
+          <!-- Sort Select -->
+          <select id="select-sort-students" class="form-input" style="width: 170px;">
+            <option value="risk-desc">Sort: Risk (High to Low)</option>
+            <option value="risk-asc">Sort: Risk (Low to High)</option>
+            <option value="cgpa-asc">Sort: CGPA (Lowest First)</option>
+            <option value="cgpa-desc">Sort: CGPA (Highest First)</option>
+            <option value="att-asc">Sort: Attendance (Lowest)</option>
+            <option value="name-asc">Sort: Name (A - Z)</option>
+          </select>
+
+          <!-- View Toggle -->
+          <div class="btn-group-toggle">
+            <button id="btn-view-table" class="btn-toggle-item active" title="Table View">
+              <i class="fa-solid fa-table-list"></i>
+            </button>
+            <button id="btn-view-cards" class="btn-toggle-item" title="Card Grid View">
+              <i class="fa-solid fa-grip"></i>
+            </button>
+          </div>
+
+          <!-- Add Student Button -->
+          <button id="btn-add-student-modal" class="btn btn-primary" style="white-space: nowrap;">
+            <i class="fa-solid fa-plus"></i> Enroll Student
+          </button>
+        </div>
+      </div>
+
+      <!-- Natural Language Query Suggestion Chips -->
+      <div class="query-chips-row">
+        <span class="text-2xs text-muted font-semibold uppercase"><i class="fa-solid fa-wand-magic-sparkles text-primary"></i> AI Quick Filters:</span>
+        <button class="query-chip" data-query="high risk">🔴 High Risk Only</button>
+        <button class="query-chip" data-query="attendance < 75">⚠️ Attendance &lt; 75%</button>
+        <button class="query-chip" data-query="dean's list">⭐ Dean's List Honors (CGPA &gt; 8.5)</button>
+        <button class="query-chip" data-query="failing">📉 Low GPA / Struggling</button>
+        <button class="query-chip" data-query="Computer Science">💻 Computer Science</button>
+        <button class="query-chip" data-query="intervention">📝 Has Active Intervention</button>
+      </div>
+
+      <!-- Status Filter Tabs Row -->
+      <div class="flex items-center justify-between mt-2">
+        <div class="filter-tabs-group">
+          <button class="filter-tab active" data-filter="all">
+            All Students <span class="filter-badge" id="filter-count-all">16</span>
+          </button>
+          <button class="filter-tab" data-filter="high-risk">
+            🔴 High Risk <span class="filter-badge" id="filter-count-high">4</span>
+          </button>
+          <button class="filter-tab" data-filter="moderate">
+            🟡 Moderate Watch <span class="filter-badge" id="filter-count-mod">3</span>
+          </button>
+          <button class="filter-tab" data-filter="low-risk">
+            🟢 On Track <span class="filter-badge" id="filter-count-low">9</span>
+          </button>
+          <button class="filter-tab" data-filter="low-attendance">
+            ⚠️ Low Attendance <span class="filter-badge" id="filter-count-att">4</span>
+          </button>
+        </div>
+
+        <span class="text-xs text-muted" id="roster-match-count">Showing 16 of 16 students</span>
+      </div>
+    </section>
+
+    <!-- Student Roster Container (Injected by DashboardManager) -->
+    <section id="student-roster-container" class="mb-12">
+      <!-- Dynamic Table or Cards View Rendered Here -->
+    </section>
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Entry Script -->
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
