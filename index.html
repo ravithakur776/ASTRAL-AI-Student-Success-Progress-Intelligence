@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ASTRAL — AI Student Success & Progress Intelligence Platform</title>
-  <meta name="description" content="AI-driven early warning and progress intelligence platform for student retention, academic trajectory forecasting, and automated remediation roadmaps." />
+  <meta name="description" content="AI-driven explainable early warning system and student success intelligence platform for retention forecasting, root-cause diagnostics, and actionable 7-day study plans." />
 
   <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <!-- FontAwesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -21,7 +21,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <!-- Top Navigation Header -->
+  <!-- 1. Top Navigation & Brand Header -->
   <header class="top-nav">
     <div class="brand-logo-group">
       <div class="brand-icon">
@@ -37,7 +37,7 @@
     <div class="flex items-center gap-3">
       <div class="flex items-center gap-2 bg-slate-900/80 p-1 rounded-md border border-slate-800">
         <i class="fa-solid fa-user-shield text-muted pl-2 text-xs"></i>
-        <select id="select-user-role" class="form-input form-input-xs border-0 bg-transparent text-slate-200 cursor-pointer">
+        <select id="select-user-role" class="form-input form-input-xs border-0 bg-transparent text-slate-200 cursor-pointer" aria-label="Select User Role">
           <option value="faculty">Role: Faculty Success Advisor</option>
           <option value="dean">Role: Dean / Academic Director</option>
           <option value="student">Role: Student Self-Service Portal</option>
@@ -62,56 +62,96 @@
 
   <!-- Main Viewport Content -->
   <main class="main-content">
-    <!-- 1. Executive Metric Summary Cards (5-Column KPI Row) -->
-    <section class="grid grid-cols-5 gap-4 mb-6">
+    <!-- 2. Key Statistics Overview Grid (8 Core Pillars Calculated Dynamically) -->
+    <section class="grid grid-cols-4 gap-3 mb-6" id="dashboard-kpi-grid">
+      <!-- 1. Total Cohort -->
       <div class="kpi-card kpi-card-indigo">
         <div class="kpi-label">
-          <span>Enrolled Cohort</span>
+          <span>Total Cohort</span>
           <i class="fa-solid fa-users text-primary"></i>
         </div>
-        <div class="kpi-value" id="kpi-total-students">16</div>
-        <div class="kpi-subtext">Across 6 Technical Majors</div>
+        <div class="kpi-value" id="kpi-total-students">0</div>
+        <div class="kpi-subtext" id="kpi-dept-count">Across active majors</div>
       </div>
 
-      <div class="kpi-card kpi-card-cyan">
-        <div class="kpi-label">
-          <span>Batch Mean CGPA</span>
-          <i class="fa-solid fa-graduation-cap text-cyan-400"></i>
-        </div>
-        <div class="kpi-value" id="kpi-avg-gpa">7.48</div>
-        <div class="kpi-subtext text-success"><i class="fa-solid fa-arrow-trend-up"></i> +0.12 Target Delta</div>
-      </div>
-
-      <div class="kpi-card kpi-card-rose">
-        <div class="kpi-label">
-          <span>At-Risk Early Warnings</span>
-          <i class="fa-solid fa-triangle-exclamation text-danger"></i>
-        </div>
-        <div class="kpi-value text-danger" id="kpi-at-risk-count">4</div>
-        <div class="kpi-subtext text-danger">Requires Priority Triage</div>
-      </div>
-
+      <!-- 2. On Track -->
       <div class="kpi-card kpi-card-emerald">
         <div class="kpi-label">
-          <span>Predicted Retention</span>
-          <i class="fa-solid fa-shield-heart text-success"></i>
+          <span>On Track (Safe)</span>
+          <i class="fa-solid fa-circle-check text-success"></i>
         </div>
-        <div class="kpi-value text-success" id="kpi-retention-rate">88%</div>
-        <div class="kpi-subtext text-muted">ASTRAL Confidence: 94%</div>
+        <div class="kpi-value text-success" id="kpi-on-track-count">0</div>
+        <div class="kpi-subtext text-success" id="kpi-on-track-pct">0% of cohort</div>
       </div>
 
+      <!-- 3. Needs Attention -->
       <div class="kpi-card kpi-card-amber">
         <div class="kpi-label">
-          <span>Active Interventions</span>
-          <i class="fa-solid fa-clipboard-check text-warning"></i>
+          <span>Needs Attention</span>
+          <i class="fa-solid fa-triangle-exclamation text-warning"></i>
         </div>
-        <div class="kpi-value text-warning" id="kpi-interventions">5</div>
-        <div class="kpi-subtext text-muted">In Progress / Pending</div>
+        <div class="kpi-value text-warning" id="kpi-needs-attention-count">0</div>
+        <div class="kpi-subtext text-warning" id="kpi-needs-attention-pct">0% of cohort</div>
+      </div>
+
+      <!-- 4. At Risk -->
+      <div class="kpi-card kpi-card-rose">
+        <div class="kpi-label">
+          <span>At Risk (Priority)</span>
+          <i class="fa-solid fa-shield-halved text-danger"></i>
+        </div>
+        <div class="kpi-value text-danger" id="kpi-at-risk-count">0</div>
+        <div class="kpi-subtext text-danger" id="kpi-at-risk-pct">0% requires triage</div>
+      </div>
+
+      <!-- 5. Average Performance (CGPA) -->
+      <div class="kpi-card kpi-card-cyan">
+        <div class="kpi-label">
+          <span>Cohort Mean CGPA</span>
+          <i class="fa-solid fa-graduation-cap text-cyan-400"></i>
+        </div>
+        <div class="kpi-value" id="kpi-avg-gpa">0.00</div>
+        <div class="kpi-subtext text-muted">Scale 0.00 - 10.00</div>
+      </div>
+
+      <!-- 6. Cohort Attendance -->
+      <div class="kpi-card kpi-card-purple">
+        <div class="kpi-label">
+          <span>Average Attendance</span>
+          <i class="fa-solid fa-calendar-check text-purple-400"></i>
+        </div>
+        <div class="kpi-value" id="kpi-avg-attendance">0%</div>
+        <div class="kpi-subtext" id="kpi-attendance-sub">Statutory line: 75%</div>
+      </div>
+
+      <!-- 7. Assignment Completion -->
+      <div class="kpi-card kpi-card-teal">
+        <div class="kpi-label">
+          <span>Assignment Turnaround</span>
+          <i class="fa-solid fa-clipboard-list text-teal-400"></i>
+        </div>
+        <div class="kpi-value" id="kpi-avg-assignment">0%</div>
+        <div class="kpi-subtext text-muted" id="kpi-assignment-sub">On-time rate</div>
+      </div>
+
+      <!-- 8. Performance Momentum / Trajectory Trend -->
+      <div class="kpi-card kpi-card-blue">
+        <div class="kpi-label">
+          <span>Score Momentum</span>
+          <i class="fa-solid fa-chart-line text-blue-400"></i>
+        </div>
+        <div class="kpi-value" id="kpi-performance-trend">0.0%</div>
+        <div class="kpi-subtext" id="kpi-trend-sub">Net assessment trajectory</div>
       </div>
     </section>
 
-    <!-- 2. Interactive Visual Analytics Matrix (2x2 Grid) -->
-    <section class="grid grid-cols-2 gap-6 mb-8">
+    <!-- 3. Prominent AI Early Warning & Actionable Priority Attention Section -->
+    <section id="ai-priority-insights-container" class="mb-6">
+      <!-- Rendered dynamically by DashboardManager -->
+    </section>
+
+    <!-- 4. Interactive Visual Analytics Matrix (2x2 Grid) -->
+    <section class="grid grid-cols-2 gap-4 mb-6">
       <!-- Chart 1: Grade & Performance Distribution -->
       <div class="chart-container-card">
         <div class="flex justify-between items-center mb-2">
@@ -165,7 +205,7 @@
       </div>
     </section>
 
-    <!-- 3. Student Intelligence Roster & Search Command Hub -->
+    <!-- 5. Student Intelligence Roster & Search Command Hub -->
     <section class="toolbar-container">
       <div class="flex items-center justify-between gap-4">
         <!-- Natural Language & Text Search Input -->
@@ -183,7 +223,7 @@
 
         <!-- Department Filter -->
         <div class="flex items-center gap-2">
-          <select id="select-dept-filter" class="form-input" style="width: 200px;">
+          <select id="select-dept-filter" class="form-input" style="width: 190px;" aria-label="Filter by Department">
             <option value="all">All Departments</option>
             <option value="Computer Science">Computer Science</option>
             <option value="Artificial Intelligence">Artificial Intelligence</option>
@@ -194,7 +234,7 @@
           </select>
 
           <!-- Sort Select -->
-          <select id="select-sort-students" class="form-input" style="width: 170px;">
+          <select id="select-sort-students" class="form-input" style="width: 170px;" aria-label="Sort Students">
             <option value="risk-desc">Sort: Risk (High to Low)</option>
             <option value="risk-asc">Sort: Risk (Low to High)</option>
             <option value="cgpa-asc">Sort: CGPA (Lowest First)</option>
@@ -205,16 +245,16 @@
 
           <!-- View Toggle -->
           <div class="btn-group-toggle">
-            <button id="btn-view-table" class="btn-toggle-item active" title="Table View">
+            <button type="button" id="btn-view-table" class="btn-toggle-item active" title="Table View">
               <i class="fa-solid fa-table-list"></i>
             </button>
-            <button id="btn-view-cards" class="btn-toggle-item" title="Card Grid View">
+            <button type="button" id="btn-view-cards" class="btn-toggle-item" title="Card Grid View">
               <i class="fa-solid fa-grip"></i>
             </button>
           </div>
 
           <!-- Add Student Button -->
-          <button id="btn-add-student-modal" class="btn btn-primary" style="white-space: nowrap;">
+          <button type="button" id="btn-add-student-modal" class="btn btn-primary" style="white-space: nowrap;">
             <i class="fa-solid fa-plus"></i> Enroll Student
           </button>
         </div>
@@ -222,40 +262,40 @@
 
       <!-- Natural Language Query Suggestion Chips -->
       <div class="query-chips-row">
-        <span class="text-2xs text-muted font-semibold uppercase"><i class="fa-solid fa-wand-magic-sparkles text-primary"></i> AI Quick Filters:</span>
-        <button class="query-chip" data-query="high risk">🔴 High Risk Only</button>
-        <button class="query-chip" data-query="attendance < 75">⚠️ Attendance &lt; 75%</button>
-        <button class="query-chip" data-query="dean's list">⭐ Dean's List Honors (CGPA &gt; 8.5)</button>
-        <button class="query-chip" data-query="failing">📉 Low GPA / Struggling</button>
-        <button class="query-chip" data-query="Computer Science">💻 Computer Science</button>
-        <button class="query-chip" data-query="intervention">📝 Has Active Intervention</button>
+        <span class="text-2xs text-muted font-semibold uppercase"><i class="fa-solid fa-wand-magic-sparkles text-primary"></i> Quick Filters:</span>
+        <button type="button" class="query-chip" data-query="high risk">🔴 High Risk Only</button>
+        <button type="button" class="query-chip" data-query="attendance < 75">⚠️ Attendance &lt; 75%</button>
+        <button type="button" class="query-chip" data-query="dean's list">⭐ Dean's List Honors (CGPA &gt; 8.5)</button>
+        <button type="button" class="query-chip" data-query="failing">📉 Low GPA / Struggling</button>
+        <button type="button" class="query-chip" data-query="Computer Science">💻 Computer Science</button>
+        <button type="button" class="query-chip" data-query="intervention">📝 Has Active Intervention</button>
       </div>
 
       <!-- Status Filter Tabs Row -->
       <div class="flex items-center justify-between mt-2">
         <div class="filter-tabs-group">
-          <button class="filter-tab active" data-filter="all">
-            All Students <span class="filter-badge" id="filter-count-all">16</span>
+          <button type="button" class="filter-tab active" data-filter="all">
+            All Students <span class="filter-badge" id="filter-count-all">0</span>
           </button>
-          <button class="filter-tab" data-filter="high-risk">
-            🔴 High Risk <span class="filter-badge" id="filter-count-high">4</span>
+          <button type="button" class="filter-tab" data-filter="high-risk">
+            🔴 At Risk <span class="filter-badge" id="filter-count-high">0</span>
           </button>
-          <button class="filter-tab" data-filter="moderate">
-            🟡 Moderate Watch <span class="filter-badge" id="filter-count-mod">3</span>
+          <button type="button" class="filter-tab" data-filter="moderate">
+            🟡 Needs Attention <span class="filter-badge" id="filter-count-mod">0</span>
           </button>
-          <button class="filter-tab" data-filter="low-risk">
-            🟢 On Track <span class="filter-badge" id="filter-count-low">9</span>
+          <button type="button" class="filter-tab" data-filter="low-risk">
+            🟢 On Track <span class="filter-badge" id="filter-count-low">0</span>
           </button>
-          <button class="filter-tab" data-filter="low-attendance">
-            ⚠️ Low Attendance <span class="filter-badge" id="filter-count-att">4</span>
+          <button type="button" class="filter-tab" data-filter="low-attendance">
+            ⚠️ Low Attendance <span class="filter-badge" id="filter-count-att">0</span>
           </button>
         </div>
 
-        <span class="text-xs text-muted" id="roster-match-count">Showing 16 of 16 students</span>
+        <span class="text-xs text-muted" id="roster-match-count">Showing 0 of 0 students</span>
       </div>
     </section>
 
-    <!-- Student Roster Container (Injected by DashboardManager) -->
+    <!-- 6. Student Roster Container (Injected by DashboardManager) -->
     <section id="student-roster-container" class="mb-12">
       <!-- Dynamic Table or Cards View Rendered Here -->
     </section>
