@@ -22,25 +22,33 @@ export class DashboardManager {
   }
 
   /**
-   * Initialize and render dashboard
+   * Initialize and render dashboard with single-pass enriched memoization
    */
   render() {
     const students = StorageService.getStudents();
-    this.renderKpiCards(students);
-    this.renderPriorityAlerts(students);
-    this.renderFilterPills(students);
-    this.renderStudentRoster(students);
+    const safeStudents = Array.isArray(students) ? students : [];
+
+    // Single-pass enrichment
+    const enriched = safeStudents.map(s => ({
+      student: s,
+      analysis: AIEngine.analyzeStudent(s)
+    }));
+
+    this.renderKpiCards(safeStudents, enriched);
+    this.renderPriorityAlerts(safeStudents, enriched);
+    this.renderFilterPills(safeStudents, enriched);
+    this.renderStudentRoster(safeStudents);
+
     if (this.analyticsManager) {
-      this.analyticsManager.renderDashboardCharts(students);
+      this.analyticsManager.renderDashboardCharts(safeStudents);
     }
   }
 
   /**
    * Render Top 8 Key Metrics with dynamic calculation and zero hardcoding
    */
-  renderKpiCards(students) {
-    const safeStudents = Array.isArray(students) ? students : [];
-    const total = safeStudents.length;
+  renderKpiCards(students, enriched) {
+    const total = students.length;
 
     let onTrackCount = 0;
     let needsAttentionCount = 0;
@@ -52,8 +60,7 @@ export class DashboardManager {
     let totalTrendDelta = 0;
     let studentsWithTrend = 0;
 
-    safeStudents.forEach(s => {
-      const analysis = AIEngine.analyzeStudent(s);
+    enriched.forEach(({ student: s, analysis }) => {
       if (analysis.status === 'At Risk' || analysis.riskLevel === 'High') {
         atRiskCount++;
       } else if (analysis.status === 'Needs Attention' || analysis.riskLevel === 'Moderate') {
@@ -82,7 +89,7 @@ export class DashboardManager {
     const needsAttentionPct = total > 0 ? Math.round((needsAttentionCount / total) * 100) : 0;
     const atRiskPct = total > 0 ? Math.round((atRiskCount / total) * 100) : 0;
 
-    const depts = new Set(safeStudents.map(s => s.department)).size;
+    const depts = new Set(students.map(s => s.department)).size;
 
     // Elements
     const elTotal = document.getElementById('kpi-total-students');
@@ -132,13 +139,11 @@ export class DashboardManager {
   /**
    * Render Prominent AI Priority Insights & Attention Section
    */
-  renderPriorityAlerts(students) {
+  renderPriorityAlerts(students, enriched) {
     const container = document.getElementById('ai-priority-insights-container');
     if (!container) return;
 
-    const safeStudents = Array.isArray(students) ? students : [];
-
-    if (safeStudents.length === 0) {
+    if (students.length === 0) {
       container.innerHTML = `
         <div class="card p-6 text-center border-slate-800">
           <i class="fa-solid fa-users-slash text-3xl text-muted mb-2"></i>
@@ -150,8 +155,7 @@ export class DashboardManager {
     }
 
     // Filter students requiring priority attention (At Risk or Needs Attention)
-    const priorityList = safeStudents
-      .map(s => ({ student: s, analysis: AIEngine.analyzeStudent(s) }))
+    const priorityList = enriched
       .filter(item => item.analysis.status === 'At Risk' || item.analysis.status === 'Needs Attention')
       .sort((a, b) => b.analysis.riskScore - a.analysis.riskScore)
       .slice(0, 3); // Top 3 priority cases
@@ -282,24 +286,19 @@ export class DashboardManager {
   /**
    * Render counts inside filter tabs
    */
-  renderFilterPills(students) {
-    const safeStudents = Array.isArray(students) ? students : [];
-    const atRisk = safeStudents.filter(s => {
-      const a = AIEngine.analyzeStudent(s);
-      return a.status === 'At Risk' || a.riskLevel === 'High';
-    }).length;
+  renderFilterPills(students, enriched) {
+    let atRisk = 0;
+    let moderate = 0;
+    let lowRisk = 0;
+    let lowAtt = 0;
 
-    const moderate = safeStudents.filter(s => {
-      const a = AIEngine.analyzeStudent(s);
-      return a.status === 'Needs Attention' || a.riskLevel === 'Moderate';
-    }).length;
+    enriched.forEach(({ student: s, analysis: a }) => {
+      if (a.status === 'At Risk' || a.riskLevel === 'High') atRisk++;
+      else if (a.status === 'Needs Attention' || a.riskLevel === 'Moderate') moderate++;
+      else lowRisk++;
 
-    const lowRisk = safeStudents.filter(s => {
-      const a = AIEngine.analyzeStudent(s);
-      return a.status === 'On Track' || a.riskLevel === 'Low';
-    }).length;
-
-    const lowAtt = safeStudents.filter(s => (s.attendanceRate || 75) < 75).length;
+      if ((s.attendanceRate || 75) < 75) lowAtt++;
+    });
 
     const countAll = document.getElementById('filter-count-all');
     const countHigh = document.getElementById('filter-count-high');
@@ -307,7 +306,7 @@ export class DashboardManager {
     const countLow = document.getElementById('filter-count-low');
     const countAtt = document.getElementById('filter-count-att');
 
-    if (countAll) countAll.textContent = safeStudents.length;
+    if (countAll) countAll.textContent = students.length;
     if (countHigh) countHigh.textContent = atRisk;
     if (countMod) countMod.textContent = moderate;
     if (countLow) countLow.textContent = lowRisk;

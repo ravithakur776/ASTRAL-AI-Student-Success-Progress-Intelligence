@@ -38,13 +38,13 @@ export class UIUtils {
 
     toast.querySelector('.toast-close').addEventListener('click', () => {
       toast.classList.add('animate-slide-out');
-      setTimeout(() => toast.remove(), 300);
+      setTimeout(() => toast.remove(), 250);
     });
 
     setTimeout(() => {
       if (toast.parentNode) {
         toast.classList.add('animate-slide-out');
-        setTimeout(() => toast.remove(), 300);
+        setTimeout(() => toast.remove(), 250);
       }
     }, duration);
   }
@@ -84,13 +84,19 @@ export class UIUtils {
   }
 
   /**
-   * Animate a numeric counter from 0 to target
+   * Animate a numeric counter with frame cancellation to prevent duplicate animation loops
    */
-  static animateValue(element, start, end, duration = 800, prefix = '', suffix = '') {
+  static animateValue(element, start, end, duration = 350, prefix = '', suffix = '') {
     if (!element || typeof window === 'undefined') {
       if (element) element.textContent = `${prefix}${end}${suffix}`;
       return;
     }
+
+    if (element._animFrameId) {
+      window.cancelAnimationFrame(element._animFrameId);
+      element._animFrameId = null;
+    }
+
     let startTimestamp = null;
     const step = (timestamp) => {
       if (!startTimestamp) startTimestamp = timestamp;
@@ -98,18 +104,19 @@ export class UIUtils {
       const current = Math.floor(progress * (end - start) + start);
       element.textContent = `${prefix}${current}${suffix}`;
       if (progress < 1) {
-        window.requestAnimationFrame(step);
+        element._animFrameId = window.requestAnimationFrame(step);
       } else {
         element.textContent = `${prefix}${end}${suffix}`;
+        element._animFrameId = null;
       }
     };
-    window.requestAnimationFrame(step);
+    element._animFrameId = window.requestAnimationFrame(step);
   }
 
   /**
    * Debounce helper
    */
-  static debounce(func, wait = 250) {
+  static debounce(func, wait = 200) {
     let timeout;
     return function executedFunction(...args) {
       const later = () => {
