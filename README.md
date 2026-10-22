@@ -107,5 +107,3 @@ ASTRAL — AI Student Success & Progress Intelligence/
 
 ## 🛡️ License
 MIT License. Built for collegiate student success and hackathon presentation.
-
-
